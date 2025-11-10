@@ -3,6 +3,8 @@
 #include <set>
 #include <string>
 #include <sstream>
+#include <cstring>
+
 using namespace std;
 
 /*
@@ -18,12 +20,36 @@ using namespace std;
 bool parseNumbers(const string &line, vector<int> &out, int expectedCount = -1) {
     istringstream iss(line);
     out.clear();
+
+    if (line.empty())
+        return false;
+
     int num;
-    while (iss >> num) out.push_back(num);
-    if (!iss.eof()) return false;
-    if (expectedCount != -1 && (int) out.size() != expectedCount) return false;
-    return !out.empty();
+    vector<int> temp;
+
+    while (iss >> num) {
+        temp.push_back(num);
+    }
+
+    if (iss.fail() && !iss.eof())
+        return false;
+    if (temp.empty())
+        return false;
+    if (expectedCount != -1 && (int) temp.size() != expectedCount)
+        return false;
+
+    ostringstream expected;
+    for (size_t i = 0; i < temp.size(); i++) {
+        if (i > 0) expected << " ";
+        expected << temp[i];
+    }
+    if (line != expected.str()) {
+        return false;
+    }
+    out = temp;
+    return true;
 }
+
 
 // Validate Mastermind parameter constraints.
 bool validateConstraints(int k, int n) {
@@ -71,7 +97,7 @@ void outputGuess(const vector<int> &guess) {
 pair<int, int> readResponse(int n) {
     string line;
     vector<int> res;
-    if (!getline(cin, line)) return {-1, -1};
+    if (!getline(cin, line)) return {n, 0};
     if (!parseNumbers(line, res, 2)) return {-1, -1};
     int black = res[0], white = res[1];
     if (black < 0 || white < 0 || black + white > n || black > n || white > n)
@@ -125,9 +151,25 @@ bool isValidGuess(const vector<int> &guess, int k, int n) {
 // Unified argument parsing and validation.
 bool initializeGame(int argc, char *argv[], int &k, int &n, vector<int> &secret) {
     try {
-        k = stoi(argv[1]);
-        n = (argc == 3) ? stoi(argv[2]) : argc - 2;
-    } catch (...) { return false; }
+        size_t pos1 = 0, pos2 = 0;
+
+        k = stoi(argv[1], &pos1);
+        if (pos1 != strlen(argv[1])) {
+            return false;
+        }
+
+        if (argc == 3) {
+            n = stoi(argv[2], &pos2);
+            if (pos2 != strlen(argv[2])) {
+                return false;
+            }
+        } else {
+            n = argc - 2;
+        }
+    } catch (...) {
+        return false;
+    }
+
     if (!validateConstraints(k, n)) return false;
 
     // Parse secret if provided (codemaker mode).
@@ -135,7 +177,11 @@ bool initializeGame(int argc, char *argv[], int &k, int &n, vector<int> &secret)
         secret.clear();
         for (int i = 2; i < argc; i++) {
             try {
-                int color = stoi(argv[i]);
+                size_t pos = 0;
+                int color = stoi(argv[i], &pos);
+                if (pos != strlen(argv[i])) {
+                    return false;
+                }
                 if (color < 0 || color >= k) return false;
                 secret.push_back(color);
             } catch (...) { return false; }
